@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const { Client, MessageMedia, LocalAuth } = require('whatsapp-web.js');
+const { Client, MessageMedia, NoAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const session = require('express-session');
 const multer = require('multer'); // For handling file uploads
@@ -10,15 +10,6 @@ app.use(cors())
 const fs = require('fs');
 const { promisify } = require('util');
 
-const client = new Client({
-  authStrategy: new LocalAuth(),
-  session: {
-    // Provide a path to store session data
-    path: './session.json',
-    clientName: 'YourAppName',
-  },
-});
-
 app.use(session({
   secret: 'your-secret-key',
   resave: false,
@@ -26,12 +17,6 @@ app.use(session({
 }));
 
 app.use(express.json());
-
-// Initialize the WhatsApp client when the server starts
-client.initialize();
-
-// Define a flag to track whether the QR code has been sent
-let qrSent = false;
 
 // Create a storage engine for file uploads
 const storage = multer.memoryStorage();
@@ -107,21 +92,21 @@ app.post('/send-media', uploads.fields([{ name: 'media', maxCount: 1 }, { name: 
 
 // Define a route to display the QR code
 app.get('/qr', (req, res) => {
-  if (!client.session) {
-    if (!qrSent) {
-      client.on('qr', async (qr) => {
-        const qrCode = await qrcode.toDataURL(qr);
-        qrSent = true;
-        console.log(qrCode)
-        return res.send(qrCode);
-      });
-      client.on('ready', ()=>{
-        console.log('client is ready');
-      })
-    } else {
-      res.send('Session already authenticated.');
-    }
+const client = new Client({
+  authStrategy: new NoAuth(),
+  puppeteer: {
+    headless: false,
   }
+  session: {
+    // Provide a path to store session data
+    path: './session.json',
+    clientName: 'YourAppName',
+  },
+});
+client.on('ready', ()=> {
+  console.log('client is ready')
+  )}
+client.initialize();
 });
 
 app.listen(3000, () => {
