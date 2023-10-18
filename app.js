@@ -48,31 +48,36 @@ const Storage = multer.diskStorage({
 const uploads = multer({ storage: Storage });
 
 // Define a POST route for sending messages
-app.post('/send-messages', upload.single('csv'), async(req, res) => {
-  // Read and process the CSV file containing contact numbers
-  const contactNumbers = [];
-  req.file.buffer
-    .toString()
-    .split('\n')
-    .forEach((line) => {
-      const number = line.trim();
-      if (number) {
-        contactNumbers.push(number);
-      }
-    });
+// Define a POST route for sending messages
+app.post('/send-messages', upload.single('csv'), async (req, res) => {
+  try {
+    // Read and process the CSV file containing contact numbers
+    const contactNumbers = [];
+    req.file.buffer
+      .toString()
+      .split('\n')
+      .forEach((line) => {
+        const number = line.trim();
+        if (number) {
+          contactNumbers.push(number);
+        }
+      });
 
-  // Send messages to the contact numbers
-  const message = req.body.message;
-console.log(contactNumbers);
-console.log(message);
-for (let index = 0; index < contactNumbers.length; index++) {
-  let test = contactNumbers[index]
-  console.log(test);
-  let code = await client.sendMessage('234' + test + '@c.us', message);
-  console.log(code);
-}
+    // Send messages to the contact numbers
+    const message = req.body.message;
 
-  res.send('Messages sent successfully.');
+    const results = [];
+    for (let index = 0; index < contactNumbers.length; index++) {
+      let test = contactNumbers[index];
+      let code = await client.sendMessage('234' + test + '@c.us', message);
+      results.push({ contact: test, status: 'Message sent' });
+    }
+
+    res.status(200).json({ success: true, results });
+  } catch (error) {
+    console.error('Error sending messages:', error);
+    res.status(500).json({ success: false, message: 'Error sending messages', error: error.message });
+  }
 });
 
 // Define a POST route for sending media files
@@ -84,46 +89,50 @@ app.post('/send-media', uploads.fields([{ name: 'media', maxCount: 1 }, { name: 
 
     const numbers = csvFile.toString().split('\r\n').map((number) => number.trim());
 
+    const results = [];
     for (const number of numbers) {
       // Validate the format of the phone number here (remove any special characters or spaces)
       const cleanNumber = number.replace(/[^\d]+/g, '');
 
       if (cleanNumber) {
         const media = MessageMedia.fromFilePath(mediaFile.path);
-        const chat = await client.sendMessage( '234' + cleanNumber + '@c.us', media);
-        console.log(chat);
-        console.log(`Media sent to ${cleanNumber}`);
+        const chat = await client.sendMessage('234' + cleanNumber + '@c.us', media);
+        results.push({ contact: cleanNumber, status: 'Media sent' });
       }
     }
 
-    res.status(200).json({ success: true, message: 'Media sent' });
+    res.status(200).json({ success: true, results });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, message: 'Error sending media' });
+    console.error('Error sending media:', error);
+    res.status(500).json({ success: false, message: 'Error sending media', error: error.message });
   }
 });
 
   
 
 // Define a route to display the QR code
+// Define a route to display the QR code on demand
 app.get('/qr', (req, res) => {
   if (!client.session) {
     if (!qrSent) {
-      const qrListener = async (qr) => {
-        const qrCode = await qrcode.toDataURL(qr);
-        qrSent = true;
-        console.log(qrCode);
-        res.send(qrCode);
-        // Remove the event listener after sending the response
-        client.off('qr', qrListener);
-        return;
-      };
-      
-      client.on('qr', qrListener);
-
-      client.on('ready', () => {
-        console.log('client is ready');
-      });
+      // Generate the QR code on demand
+      client.generateQR()
+        .then((qrCode) => {
+          qrSent = true;
+          console.log(qrCode);
+          res.send(qrCode);
+        })
+        .catch((error) => {
+          console.error('Error generating QR code:', error);
+          res.status(500).send('Error generating QR code');
+        });
+        client.on('ready', () => {
+          console.log("Client is ready");
+        })
+        client.on('error', (error) => {
+          console.error('WhatsApp client error:', error);
+        });
+        
     } else {
       res.send('Session already authenticated.');
     }
