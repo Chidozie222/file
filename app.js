@@ -10,12 +10,6 @@ app.use(cors())
 const fs = require('fs');
 const { promisify } = require('util');
 
-app.use(session({
-  secret: 'your-secret-key',
-  resave: false,
-  saveUninitialized: true,
-}));
-
 app.use(express.json());
 
 // Create a storage engine for file uploads
@@ -97,11 +91,6 @@ const client = new Client({
   puppeteer: {
     headless: false,
   }
-  session: {
-    // Provide a path to store session data
-    path: './session.json',
-    clientName: 'YourAppName',
-  },
 });
 client.on('ready', ()=> {
   console.log('client is ready')
