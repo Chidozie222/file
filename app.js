@@ -33,6 +33,15 @@ client.initialize();
 // Define a flag to track whether the QR code has been sent
 let qrSent = false;
 
+// Handle 'ready' and 'error' events
+client.on('ready', () => {
+  console.log('Client is ready');
+});
+
+client.on('error', (error) => {
+  console.error('WhatsApp client error:', error);
+});
+
 // Create a storage engine for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -110,34 +119,27 @@ app.post('/send-media', uploads.fields([{ name: 'media', maxCount: 1 }, { name: 
 
   
 
-// Define a route to display the QR code
-// Define a route to display the QR code on demand
 app.get('/qr', (req, res) => {
   if (!client.session) {
     if (!qrSent) {
       // Generate the QR code on demand
-      client.generateQR()
-        .then((qrCode) => {
-          qrSent = true;
-          console.log(qrCode);
-          res.send(qrCode);
-        })
-        .catch((error) => {
-          console.error('Error generating QR code:', error);
+      const qrData = 'Your custom QR code data'; // Replace with the data you want to encode in the QR code
+      qrcode.toDataURL(qrData, (err, qrCodeData) => {
+        if (err) {
+          console.error('Error generating QR code:', err);
           res.status(500).send('Error generating QR code');
-        });
-        client.on('ready', () => {
-          console.log("Client is ready");
-        })
-        client.on('error', (error) => {
-          console.error('WhatsApp client error:', error);
-        });
-        
+        } else {
+          qrSent = true;
+          console.log(qrCodeData);
+          res.send(qrCodeData);
+        }
+      });
     } else {
       res.send('Session already authenticated.');
     }
   }
 });
+
 
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
