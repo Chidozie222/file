@@ -12,6 +12,21 @@ const { promisify } = require('util');
 
 app.use(express.json());
 
+app.get('/qr', (req, res) => {
+const client = new Client({
+  authStrategy: new NoAuth(),
+  puppeteer: {
+    headless: false,
+  }
+  });
+client.on('ready', ()=> {
+  console.log('client is ready')
+  )};
+});
+
+
+client.initialize();
+
 // Create a storage engine for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -82,21 +97,6 @@ app.post('/send-media', uploads.fields([{ name: 'media', maxCount: 1 }, { name: 
   }
 });
 
-  
-
-// Define a route to display the QR code
-app.get('/qr', (req, res) => {
-const client = new Client({
-  authStrategy: new NoAuth(),
-  puppeteer: {
-    headless: false,
-  }
-});
-client.on('ready', ()=> {
-  console.log('client is ready')
-  )}
-client.initialize();
-});
 
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
