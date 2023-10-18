@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const { Client, MessageMedia, NoAuth } = require('whatsapp-web.js');
+const { Client, MessageMedia, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const session = require('express-session');
 const multer = require('multer'); // For handling file uploads
@@ -10,22 +10,28 @@ app.use(cors())
 const fs = require('fs');
 const { promisify } = require('util');
 
-app.use(express.json());
-
-app.get('/qr', (req, res) => {
 const client = new Client({
-  authStrategy: new NoAuth(),
-  puppeteer: {
-    headless: false,
-  }
-  });
-client.on('ready', ()=> {
-  console.log('client is ready')
-  )};
+  authStrategy: new LocalAuth(),
+  session: {
+    // Provide a path to store session data
+    path: './session.json',
+    clientName: 'YourAppName',
+  },
 });
 
+app.use(session({
+  secret: 'your-secret-key',
+  resave: false,
+  saveUninitialized: true,
+}));
 
+app.use(express.json());
+
+// Initialize the WhatsApp client when the server starts
 client.initialize();
+
+// Define a flag to track whether the QR code has been sent
+let qrSent = false;
 
 // Create a storage engine for file uploads
 const storage = multer.memoryStorage();
@@ -97,6 +103,32 @@ app.post('/send-media', uploads.fields([{ name: 'media', maxCount: 1 }, { name: 
   }
 });
 
+  
+
+// Define a route to display the QR code
+app.get('/qr', (req, res) => {
+  if (!client.session) {
+    if (!qrSent) {
+      const qrListener = async (qr) => {
+        const qrCode = await qrcode.toDataURL(qr);
+        qrSent = true;
+        console.log(qrCode);
+        res.send(qrCode);
+        // Remove the event listener after sending the response
+        client.off('qr', qrListener);
+        return;
+      };
+      
+      client.on('qr', qrListener);
+
+      client.on('ready', () => {
+        console.log('client is ready');
+      });
+    } else {
+      res.send('Session already authenticated.');
+    }
+  }
+});
 
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
